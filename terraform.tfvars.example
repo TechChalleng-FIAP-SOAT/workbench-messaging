@@ -1,0 +1,21 @@
+# =====================================================================
+# Exemplos de configuração. Copie para terraform.tfvars e ajuste.
+# NUNCA commite o terraform.tfvars com valores reais.
+# =====================================================================
+
+# ---------- Perfil LOCALSTACK (desenvolvimento local, sem custo) ----------
+# use_localstack      = true
+# localstack_endpoint = "http://localhost:4566"
+# environment         = "local"
+# aws_region          = "us-east-1"
+
+# ---------- Perfil AWS REAL ----------
+# use_localstack = false
+# environment    = "develop"          # ou "main"
+# aws_region     = "us-east-1"
+# aws_account_id = "123456789012"      # guard-rail: sua conta
+
+# ---------- Ajustes de mensageria (opcionais) ----------
+# max_receive_count          = 3
+# message_retention_seconds  = 345600  # 4 dias
+# visibility_timeout_seconds = 30
