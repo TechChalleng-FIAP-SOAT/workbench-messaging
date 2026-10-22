@@ -55,3 +55,11 @@ variable "visibility_timeout_seconds" {
   type        = number
   default     = 30
 }
+
+# --- Notificação ao cliente (paridade com o monólito) ------------------------
+
+variable "notification_email" {
+  description = "E-mail inscrito no tópico de notificações de status da OS (confirmar a subscription no e-mail). Vazio = cria só o tópico, sem subscription."
+  type        = string
+  default     = ""
+}

@@ -57,6 +57,25 @@ resource "aws_sns_topic" "this" {
 }
 
 # ----------------------------------------------------------------------------
+# Notificação de status ao cliente (paridade com o monólito).
+# Tópico dedicado: o OS Service publica aqui subject/message formatados; a
+# subscription de e-mail entrega ao destinatário. Separado dos tópicos da Saga
+# para não misturar notificação ao cliente com orquestração interna.
+# ----------------------------------------------------------------------------
+resource "aws_sns_topic" "notifications" {
+  name = "${var.name_prefix}-os-notifications"
+}
+
+# Subscription de e-mail — só na AWS real (LocalStack não entrega e-mail) e
+# quando um e-mail foi informado. O destinatário precisa confirmar a inscrição.
+resource "aws_sns_topic_subscription" "notifications_email" {
+  count     = (!var.use_localstack && var.notification_email != "") ? 1 : 0
+  topic_arn = aws_sns_topic.notifications.arn
+  protocol  = "email"
+  endpoint  = var.notification_email
+}
+
+# ----------------------------------------------------------------------------
 # DLQs (uma por fila principal)
 # ----------------------------------------------------------------------------
 resource "aws_sqs_queue" "dlq" {
