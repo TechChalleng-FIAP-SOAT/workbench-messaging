@@ -3,6 +3,11 @@ output "topic_arns" {
   value       = { for k, t in aws_sns_topic.this : k => t.arn }
 }
 
+output "notifications_topic_arn" {
+  description = "ARN do tópico de notificações de status ao cliente (NOTIFICATIONS_TOPIC_ARN do OS Service)."
+  value       = aws_sns_topic.notifications.arn
+}
+
 output "queue_urls" {
   description = "URLs das filas SQS por consumidor."
   value       = { for k, q in aws_sqs_queue.this : k => q.id }
