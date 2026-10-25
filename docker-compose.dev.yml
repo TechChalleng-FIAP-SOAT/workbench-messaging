@@ -5,6 +5,7 @@
 #   - LocalStack (SNS/SQS)        -> mensageria da Saga        :4566
 #   - Postgres os-service          -> banco do OS Service       :15432
 #   - Postgres billing-service     -> banco do Billing Service  :15433
+#   - Postgres customer-service    -> banco do Customer Service :15434
 #   - MongoDB execution-service    -> banco do Execution (NoSQL):27017 (replica set rs0)
 #
 # Uso:
@@ -54,6 +55,21 @@ services:
       POSTGRES_PASSWORD: senha-super-segura
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dbadmin -d billing"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  customer-db:
+    image: postgres:16
+    container_name: workbench-customer-db
+    ports:
+      - "15434:5432"
+    environment:
+      POSTGRES_DB: customer
+      POSTGRES_USER: dbadmin
+      POSTGRES_PASSWORD: senha-super-segura
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbadmin -d customer"]
       interval: 10s
       timeout: 5s
       retries: 5
