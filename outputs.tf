@@ -22,3 +22,8 @@ output "dlq_urls" {
   description = "URLs das Dead-Letter Queues."
   value       = { for k, q in aws_sqs_queue.dlq : k => q.id }
 }
+
+output "alerts_topic_arn" {
+  description = "ARN do tópico que recebe os alarmes das DLQs (vazio no LocalStack)."
+  value       = var.use_localstack ? "" : aws_sns_topic.alerts[0].arn
+}

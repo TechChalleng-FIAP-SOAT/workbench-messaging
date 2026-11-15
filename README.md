@@ -104,8 +104,13 @@ terraform init \
 terraform apply -var "use_localstack=false" -var "environment=develop"
 ```
 
-> Aplicar na AWS é **ação do usuário** (requer credenciais). Veja `PENDENCIAS.md`
-> na raiz do workspace.
+> Aplicar na AWS é **ação do usuário** (requer credenciais). Veja
+> `workbench-technical-documentation/09 - Operacao/Deploy na AWS.md` (FASE 4).
+
+**Alarmes das DLQs (`alarms.tf`, só na AWS real):** um alarme do CloudWatch por DLQ
+(`ApproximateNumberOfMessagesVisible > 0`) avisa no tópico `workbench-alerts`. Passe
+`-var "alert_email=..."` para receber por e-mail (confirme a inscrição). O que fazer quando
+o alarme tocar: `workbench-technical-documentation/09 - Operacao/Runbook.md`.
 
 ## 6. Validação (sem criar nada)
 

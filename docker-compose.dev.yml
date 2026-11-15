@@ -14,7 +14,7 @@
 #   - gateway (nginx)    :8000   -> mesmo roteamento por prefixo do API Gateway da AWS
 #
 # Uso:
-#   # só a infra (para rodar os serviços com ./mvnw spring-boot:run — SAGA-E2E-LOCAL.md)
+#   # só a infra (para rodar os serviços com ./mvnw spring-boot:run — vault: 04 - Como Rodar/Saga Ponta a Ponta.md)
 #   docker compose -f docker-compose.dev.yml up -d
 #
 #   # a plataforma inteira (os 4 repos de serviço precisam estar ao lado deste)

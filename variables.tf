@@ -63,3 +63,11 @@ variable "notification_email" {
   type        = string
   default     = ""
 }
+
+# --- Alertas -----------------------------------------------------------------
+
+variable "alert_email" {
+  description = "E-mail que recebe os alarmes das DLQs (confirmar a subscription no e-mail). Vazio = cria o tópico de alertas sem inscrito."
+  type        = string
+  default     = ""
+}
