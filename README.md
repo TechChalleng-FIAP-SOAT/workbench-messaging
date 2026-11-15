@@ -44,9 +44,24 @@ da Saga.
 - **Billing** e **Execution** publicam eventos de resposta nos seus tópicos; o OS
   Service os recebe em `os-saga-replies-queue`.
 - Mapeamento fila→tópicos está em `local.queues` no `main.tf`.
+- **Notificação ao cliente** (fora da Saga): tópico `workbench-os-notifications`, onde o
+  OS Service publica o e-mail de mudança de status e o link de pagamento. Na AWS real, se
+  `notification_email` for informado, uma subscription de e-mail entrega a mensagem (o
+  destinatário precisa confirmar a inscrição); no LocalStack não há entrega de e-mail.
+  O ARN sai no output `notifications_topic_arn` (→ `NOTIFICATIONS_TOPIC_ARN` do os-service).
 
-> Os contratos de mensagem (payloads e compensações) estão em
-> `workbench-technical-documentation/01 - Arquitetura/Contratos de Mensagem.md`.
+> **Contrato das mensagens (executável):** [`contracts/saga-messages.json`](contracts/saga-messages.json)
+> é a fonte única — emissor, consumidor, campos obrigatórios e um exemplo de payload
+> de cada mensagem. Os serviços da Saga (os, billing, execution) têm uma cópia em
+> `src/test/resources/contracts/` e um **teste de contrato** (`*SagaContractTest`) que
+> roda no `mvn verify` de cada um: confere os nomes do `SagaMessages`, se o que o
+> serviço publica tem os campos obrigatórios e se ele aceita o exemplo que consome.
+>
+> Para mudar o contrato: edite o JSON aqui, rode `scripts/sync-saga-contract.sh` (copia
+> para os repositórios irmãos) e ajuste os serviços até os testes passarem.
+> `scripts/sync-saga-contract.sh --check` só confere se as cópias estão iguais.
+>
+> Explicação em texto: `workbench-technical-documentation/01 - Arquitetura/Contratos de Mensagem.md`.
 
 ## 3. Como foi feito
 
@@ -110,3 +125,4 @@ terraform validate
 | `max_receive_count` | `3` | Tentativas antes da DLQ |
 | `visibility_timeout_seconds` | `30` | Invisibilidade pós-recebimento |
 | `message_retention_seconds` | `345600` | Retenção (4 dias) |
+| `notification_email` | `""` | (opcional) e-mail inscrito no tópico de notificação ao cliente |

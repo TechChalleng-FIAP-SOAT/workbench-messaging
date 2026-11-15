@@ -10,3 +10,6 @@ terraform.tfvars
 
 # OS
 .DS_Store
+
+# Relatórios do OWASP ZAP (docker compose --profile scan)
+zap-reports/

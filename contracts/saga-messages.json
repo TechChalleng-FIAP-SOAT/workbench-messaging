@@ -1,0 +1,128 @@
+{
+  "description": "Contrato das mensagens da Saga da OS (SNS -> SQS). Fonte única: workbench-messaging/contracts. Cada serviço tem uma cópia em src/test/resources/contracts e um teste de contrato que a lê. Para mudar: edite aqui e rode scripts/sync-saga-contract.sh. 'required' usa caminhos: 'campo' = chave presente; 'lista[].campo' = presente em todo item da lista. 'optionalFor' = serviço que ainda não implementa o seu lado (não é cobrado no teste dele).",
+  "version": 1,
+  "messages": [
+    {
+      "type": "ComandoReservarEstoque",
+      "producer": "os-service",
+      "consumer": "execution-service",
+      "required": ["items", "items[].productId", "items[].quantity"],
+      "example": { "items": [ { "productId": "p-1", "quantity": 2 } ] }
+    },
+    {
+      "type": "ReservaConfirmada",
+      "producer": "execution-service",
+      "consumer": "os-service",
+      "required": ["reservations", "parts", "parts[].productId", "parts[].quantity", "parts[].name", "parts[].itemType", "parts[].unitPrice"],
+      "example": {
+        "reservations": 1,
+        "parts": [ { "productId": "p-1", "quantity": 2, "name": "Pastilha", "sku": "PF-1", "brand": "Marca X", "itemType": "PART", "unitPrice": 50.00 } ]
+      }
+    },
+    {
+      "type": "ReservaFalhou",
+      "producer": "execution-service",
+      "consumer": "os-service",
+      "required": ["reason"],
+      "example": { "reason": "Estoque disponível insuficiente para o produto p-1" }
+    },
+    {
+      "type": "ComandoConfirmarReserva",
+      "producer": "os-service",
+      "consumer": "execution-service",
+      "required": [],
+      "example": {}
+    },
+    {
+      "type": "ReservaBaixada",
+      "producer": "execution-service",
+      "consumer": "os-service",
+      "required": ["reservations"],
+      "example": { "reservations": 1 }
+    },
+    {
+      "type": "ComandoLiberarReserva",
+      "producer": "os-service",
+      "consumer": "execution-service",
+      "required": [],
+      "example": {}
+    },
+    {
+      "type": "ReservaLiberada",
+      "producer": "execution-service",
+      "consumer": "os-service",
+      "required": ["reservations"],
+      "example": { "reservations": 1 }
+    },
+    {
+      "type": "ComandoGerarOrcamento",
+      "producer": "os-service",
+      "consumer": "billing-service",
+      "required": ["parts", "parts[].productId", "parts[].quantity", "parts[].name", "parts[].itemType", "parts[].unitPrice",
+                   "labor", "labor[].serviceName", "labor[].laborCost", "customerDocument"],
+      "example": {
+        "parts": [ { "productId": "p-1", "quantity": 2, "name": "Pastilha", "sku": "PF-1", "brand": "Marca X", "itemType": "PART", "unitPrice": 50.00 } ],
+        "labor": [ { "serviceName": "TROCA_OLEO", "laborCode": null, "laborCost": 150.00 } ],
+        "customerDocument": "52998224725"
+      }
+    },
+    {
+      "type": "OrcamentoGerado",
+      "producer": "billing-service",
+      "consumer": "os-service",
+      "required": ["budgetId", "totalParts", "totalLabor", "totalPrice"],
+      "example": { "budgetId": 10, "totalParts": 100.00, "totalLabor": 150.00, "totalPrice": 250.00 }
+    },
+    {
+      "type": "OrcamentoFalhou",
+      "producer": "billing-service",
+      "consumer": "os-service",
+      "required": ["reason"],
+      "example": { "reason": "Orçamento não pôde ser gerado" }
+    },
+    {
+      "type": "ComandoCobrarPagamento",
+      "producer": "os-service",
+      "consumer": "billing-service",
+      "required": [],
+      "example": {}
+    },
+    {
+      "type": "CobrancaCriada",
+      "producer": "billing-service",
+      "consumer": "os-service",
+      "required": ["gatewayPaymentId", "checkoutUrl"],
+      "example": { "gatewayPaymentId": "PREF-1", "checkoutUrl": "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=PREF-1" }
+    },
+    {
+      "type": "PagamentoConfirmado",
+      "producer": "billing-service",
+      "consumer": "os-service",
+      "required": [],
+      "example": {}
+    },
+    {
+      "type": "PagamentoFalhou",
+      "producer": "billing-service",
+      "consumer": "os-service",
+      "required": ["reason"],
+      "example": { "reason": "pagamento recusado pelo gateway" }
+    },
+    {
+      "type": "ComandoEstornarPagamento",
+      "producer": "os-service",
+      "consumer": "billing-service",
+      "optionalFor": ["os-service"],
+      "required": [],
+      "example": {}
+    },
+    {
+      "type": "PagamentoEstornado",
+      "producer": "billing-service",
+      "consumer": "os-service",
+      "optionalFor": ["os-service"],
+      "required": ["status"],
+      "example": { "status": "ESTORNADO" }
+    }
+  ]
+}
