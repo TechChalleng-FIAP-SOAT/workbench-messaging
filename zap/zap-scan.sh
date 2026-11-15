@@ -51,10 +51,13 @@ for svc in $SERVICES; do
   # Cada zap-api-scan.py sobe e derruba um daemon ZAP; o anterior deixa o .homelock
   # no diretório do ZAP e, sem removê-lo, o próximo daemon não sobe (o scan trava).
   rm -f "$HOME/.ZAP/.homelock" /home/zap/.ZAP/.homelock
+  # HTTP de propósito: o scan roda dentro da rede do docker compose local, onde os
+  # serviços não têm TLS (na AWS o tráfego é interno à VPC, atrás do API Gateway).
+  spec_url="http://$svc:8080/v3/api-docs" # NOSONAR
   echo ""
-  echo "== [$svc] spec http://$svc:8080/v3/api-docs → ataques via $GATEWAY_URL"
+  echo "== [$svc] spec $spec_url → ataques via $GATEWAY_URL"
   zap-api-scan.py \
-    -t "http://$svc:8080/v3/api-docs" \
+    -t "$spec_url" \
     -f openapi \
     -O "$GATEWAY_URL" \
     -c rules.conf \

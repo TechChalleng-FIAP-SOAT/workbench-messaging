@@ -107,6 +107,11 @@ terraform apply -var "use_localstack=false" -var "environment=develop"
 > Aplicar na AWS é **ação do usuário** (requer credenciais). Veja
 > `workbench-technical-documentation/09 - Operacao/Deploy na AWS.md` (FASE 4).
 
+**Criptografia em repouso (`kms.tf`, só na AWS real):** os tópicos SNS usam uma chave KMS
+própria (`alias/workbench-messaging`, rotação anual), porque a chave gerenciada `aws/sns` não
+aceita os alarmes do CloudWatch; as filas e DLQs usam a criptografia gerenciada do SQS.
+Os pods publicam com a permissão de KMS da role dos nós (`workbench-k8s-terraform`).
+
 **Alarmes das DLQs (`alarms.tf`, só na AWS real):** um alarme do CloudWatch por DLQ
 (`ApproximateNumberOfMessagesVisible > 0`) avisa no tópico `workbench-alerts`. Passe
 `-var "alert_email=..."` para receber por e-mail (confirme a inscrição). O que fazer quando

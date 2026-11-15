@@ -34,6 +34,14 @@
 
 x-service-common: &service-common
   restart: unless-stopped
+  # Mesmo endurecimento dos pods no EKS (k8s/app.yaml): usuário não-root (UID 10001, na
+  # imagem), sistema de arquivos somente leitura com só /tmp gravável, sem capabilities e
+  # sem escalar privilégio. Um problema de escrita aparece aqui antes de ir para o cluster.
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop: ["ALL"]
+  security_opt: ["no-new-privileges:true"]
   volumes:
     - ${WORKBENCH_LOG_DIR:-/tmp/workbench}:/tmp/workbench
   healthcheck:

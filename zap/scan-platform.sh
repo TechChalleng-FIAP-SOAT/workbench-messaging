@@ -13,7 +13,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 services=("$@")
-[ ${#services[@]} -eq 0 ] && services=(os-service customer-service billing-service execution-service)
+[[ ${#services[@]} -eq 0 ]] && services=(os-service customer-service billing-service execution-service)
 
 status=0
 for svc in "${services[@]}"; do

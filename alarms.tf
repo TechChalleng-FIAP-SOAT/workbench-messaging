@@ -13,8 +13,9 @@ locals {
 }
 
 resource "aws_sns_topic" "alerts" {
-  count = var.use_localstack ? 0 : 1
-  name  = "${var.name_prefix}-alerts"
+  count             = var.use_localstack ? 0 : 1
+  name              = "${var.name_prefix}-alerts"
+  kms_master_key_id = local.sns_kms_key_id
 }
 
 # O destinatário precisa confirmar a inscrição no e-mail recebido.

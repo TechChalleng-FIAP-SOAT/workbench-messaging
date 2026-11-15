@@ -52,8 +52,9 @@ locals {
 # Tópicos SNS
 # ----------------------------------------------------------------------------
 resource "aws_sns_topic" "this" {
-  for_each = local.topics
-  name     = each.value
+  for_each          = local.topics
+  name              = each.value
+  kms_master_key_id = local.sns_kms_key_id
 }
 
 # ----------------------------------------------------------------------------
@@ -63,7 +64,8 @@ resource "aws_sns_topic" "this" {
 # para não misturar notificação ao cliente com orquestração interna.
 # ----------------------------------------------------------------------------
 resource "aws_sns_topic" "notifications" {
-  name = "${var.name_prefix}-os-notifications"
+  name              = "${var.name_prefix}-os-notifications"
+  kms_master_key_id = local.sns_kms_key_id
 }
 
 # Subscription de e-mail — só na AWS real (LocalStack não entrega e-mail) e
@@ -82,6 +84,7 @@ resource "aws_sqs_queue" "dlq" {
   for_each                  = local.queues
   name                      = "${each.value.name}-dlq"
   message_retention_seconds = var.message_retention_seconds
+  sqs_managed_sse_enabled   = !var.use_localstack
 }
 
 # ----------------------------------------------------------------------------
@@ -92,6 +95,7 @@ resource "aws_sqs_queue" "this" {
   name                       = each.value.name
   message_retention_seconds  = var.message_retention_seconds
   visibility_timeout_seconds = var.visibility_timeout_seconds
+  sqs_managed_sse_enabled    = !var.use_localstack
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.dlq[each.key].arn
