@@ -255,6 +255,10 @@ services:
       ORDER_EVENTS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:workbench-order-events
       SAGA_REPLIES_QUEUE_URL: http://localstack:4566/000000000000/workbench-os-saga-replies-queue
       NOTIFICATIONS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:workbench-os-notifications
+      # E-mail ao cliente: sns (padrão) ou ses. O LocalStack da comunidade NÃO tem SES, então
+      # "ses" aqui só serve para ver a validação de subida (exige SES_SENDER_EMAIL).
+      NOTIFICATION_CHANNEL: ${NOTIFICATION_CHANNEL:-sns}
+      SES_SENDER_EMAIL: ${SES_SENDER_EMAIL:-}
       CUSTOMER_VALIDATION_ENABLED: "true"
       CUSTOMER_SERVICE_URL: http://customer-service:8080
       LOG_JSON_FILE: /tmp/workbench/os-service.log

@@ -27,3 +27,8 @@ output "alerts_topic_arn" {
   description = "ARN do tópico que recebe os alarmes das DLQs (vazio no LocalStack)."
   value       = var.use_localstack ? "" : aws_sns_topic.alerts[0].arn
 }
+
+output "ses_sender_email" {
+  description = "Remetente verificado no SES (SES_SENDER_EMAIL do OS Service). Vazio = SES não configurado."
+  value       = local.ses_enabled ? aws_sesv2_email_identity.sender[0].email_identity : ""
+}

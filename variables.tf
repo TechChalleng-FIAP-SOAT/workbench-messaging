@@ -71,3 +71,16 @@ variable "alert_email" {
   type        = string
   default     = ""
 }
+
+# --- E-mail ao cliente (Amazon SES) --------------------------------------------
+variable "ses_sender_email" {
+  description = "Remetente dos e-mails ao cliente, verificado no SES (a AWS envia um e-mail de verificação). Vazio = não cria identidade; o os-service segue no canal SNS."
+  type        = string
+  default     = ""
+}
+
+variable "ses_verified_recipients" {
+  description = "Destinatários a verificar no SES. Só necessário em SANDBOX, onde o SES recusa e-mail para endereço não verificado."
+  type        = list(string)
+  default     = []
+}
