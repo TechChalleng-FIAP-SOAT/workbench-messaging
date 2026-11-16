@@ -15,10 +15,15 @@ cd "$(dirname "$0")/.."
 services=("$@")
 [[ ${#services[@]} -eq 0 ]] && services=(os-service customer-service billing-service execution-service)
 
+# Token de ADMIN (RS256, 1 h) assinado aqui, com a chave de dev: localmente não há a Lambda
+# de login, e assim nenhum token fica fixo no repositório.
+source scripts/dev-jwt.sh
+ZAP_TOKEN=$(mint_dev_jwt "{\"sub\":\"admin@workbench.dev\",\"roles\":[\"ADMIN\"],\"exp\":$(( $(date +%s) + 3600 ))}")
+
 status=0
 for svc in "${services[@]}"; do
   docker compose -f docker-compose.dev.yml --profile app --profile scan \
-    run --rm -e ZAP_SERVICES="$svc" zap < /dev/null || status=1
+    run --rm -e ZAP_SERVICES="$svc" -e ZAP_TOKEN="$ZAP_TOKEN" zap < /dev/null || status=1
 done
 echo ""
 echo "Resumo:"

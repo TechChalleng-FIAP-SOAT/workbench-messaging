@@ -3,8 +3,8 @@
 #
 # Para cada serviço: lê a spec OpenAPI direto do container (/v3/api-docs) e ataca
 # as rotas ATRAVÉS DO GATEWAY local (-O), que é o mesmo caminho de um cliente real.
-# O JWT de ADMIN é assinado aqui mesmo com o JWT_SECRET de dev (HS256, 1 h) —
-# localmente não existe a Lambda de login, e assim nenhum token fica fixo no repo.
+# O JWT de ADMIN (RS256, 1 h) chega pronto em ZAP_TOKEN: o zap/scan-platform.sh o assina com
+# a chave de dev (dev-keys/) — localmente não existe a Lambda de login.
 #
 # Relatórios: /zap/wrk/<serviço>/zap-report.{html,json} + zap-scan.log (= ./zap-reports no host)
 # Uso: zap/scan-platform.sh (um container por serviço; ZAP_SERVICES escolhe o serviço)
@@ -25,17 +25,8 @@ until curl -s -o /dev/null "$GATEWAY_URL/actuator/health"; do
   sleep 2
 done
 
-TOKEN=$(python3 - <<'PY'
-import base64, hashlib, hmac, json, os, time
-b64 = lambda b: base64.urlsafe_b64encode(b).rstrip(b"=").decode()
-secret = os.environ.get("JWT_SECRET", "akmsdkmasfnjsgknakmsdkmasdkmsadfkmdsakmdkmsadsa").encode()
-now = int(time.time())
-head = b64(json.dumps({"alg": "HS256", "typ": "JWT"}).encode())
-body = b64(json.dumps({"sub": "admin@workbench.dev", "roles": ["ADMIN"], "iat": now, "exp": now + 3600}).encode())
-sig = b64(hmac.new(secret, f"{head}.{body}".encode(), hashlib.sha256).digest())
-print(f"{head}.{body}.{sig}")
-PY
-)
+# Token de ADMIN (RS256) assinado pelo scan-platform.sh com a chave de dev (dev-keys/).
+TOKEN="${ZAP_TOKEN:?defina ZAP_TOKEN (rode pelo zap/scan-platform.sh, que assina o token)}"
 
 # Injeta o Bearer em toda requisição do ZAP (replacer de header).
 AUTH="-config replacer.full_list(0).description=JWT_Auth \

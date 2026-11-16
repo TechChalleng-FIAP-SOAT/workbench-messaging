@@ -31,10 +31,11 @@ resource "aws_kms_key" "messaging" {
         Resource  = "*"
       },
       {
-        # SNS cifra/decifra as mensagens; CloudWatch publica os alarmes das DLQs.
-        Sid       = "UsoPeloSnsECloudWatch"
+        # SNS cifra/decifra as mensagens; CloudWatch publica os alarmes das DLQs; SES publica
+        # bounces e reclamações no tópico de alertas.
+        Sid       = "UsoPeloSnsCloudWatchESes"
         Effect    = "Allow"
-        Principal = { Service = ["sns.amazonaws.com", "cloudwatch.amazonaws.com"] }
+        Principal = { Service = ["sns.amazonaws.com", "cloudwatch.amazonaws.com", "ses.amazonaws.com"] }
         Action    = ["kms:GenerateDataKey*", "kms:Decrypt"]
         Resource  = "*"
       },

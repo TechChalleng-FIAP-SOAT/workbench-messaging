@@ -84,3 +84,9 @@ variable "ses_verified_recipients" {
   type        = list(string)
   default     = []
 }
+
+variable "ses_domain" {
+  description = "Domínio próprio para o SES (identidade de domínio com DKIM). Vazio = só as identidades de e-mail."
+  type        = string
+  default     = ""
+}

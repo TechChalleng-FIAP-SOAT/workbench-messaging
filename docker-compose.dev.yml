@@ -51,9 +51,8 @@ x-service-common: &service-common
     retries: 12
     start_period: 40s
 
-# Mesmo segredo em todos (o token emitido por um é aceito pelos outros).
-x-jwt: &jwt
-  JWT_SECRET: ${JWT_SECRET:-akmsdkmasfnjsgknakmsdkmasdkmsadfkmdsakmdkmsadsa}
+# JWT (RS256): as chaves de dev vêm do perfil local de cada serviço (application-local.yml);
+# os scripts locais assinam com dev-keys/jwt-auth-dev.key.
 
 # Perfil local: libera os valores de desenvolvimento (pagamento simulado, admin com a
 # senha padrão). Sem ele, os serviços exigem todos os segredos e recusam o admin123.
@@ -181,7 +180,7 @@ services:
       customer-db:
         condition: service_healthy
     environment:
-      <<: [*jwt, *local]
+      <<: *local
       SPRING_DATASOURCE_URL: jdbc:postgresql://customer-db:5432/customer
       SPRING_DATASOURCE_USERNAME: dbadmin
       SPRING_DATASOURCE_PASSWORD: senha-super-segura
@@ -200,7 +199,7 @@ services:
       messaging-init:
         condition: service_completed_successfully
     environment:
-      <<: [*jwt, *local, *messaging]
+      <<: [*local, *messaging]
       # directConnection: o replica set de 1 nó anuncia o hostname do container do
       # Mongo; conectar direto no primário evita depender desse nome.
       MONGODB_URI: mongodb://execution-mongo:27017/execution?directConnection=true
@@ -221,7 +220,7 @@ services:
       messaging-init:
         condition: service_completed_successfully
     environment:
-      <<: [*jwt, *local, *messaging]
+      <<: [*local, *messaging]
       SPRING_DATASOURCE_URL: jdbc:postgresql://billing-db:5432/billing
       SPRING_DATASOURCE_USERNAME: dbadmin
       SPRING_DATASOURCE_PASSWORD: senha-super-segura
@@ -248,7 +247,7 @@ services:
       customer-service:
         condition: service_healthy
     environment:
-      <<: [*jwt, *local, *messaging]
+      <<: [*local, *messaging]
       SPRING_DATASOURCE_URL: jdbc:postgresql://os-db:5432/os_service
       SPRING_DATASOURCE_USERNAME: dbadmin
       SPRING_DATASOURCE_PASSWORD: senha-super-segura
@@ -289,8 +288,6 @@ services:
         condition: service_started
       customer-service:
         condition: service_healthy
-    environment:
-      <<: *jwt
     volumes:
       - ./zap:/zap/scripts:ro
       # o zap-api-scan.py grava relatórios (e lê o rules.conf) em /zap/wrk

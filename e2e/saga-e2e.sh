@@ -12,7 +12,7 @@
 #
 # Variáveis opcionais:
 #   GATEWAY_URL      (padrão: gateway local do compose, porta 8000)
-#   E2E_JWT_SECRET   (padrão: o segredo de desenvolvimento do compose)
+#   DEV_JWT_PRIVATE_KEY  chave privada de dev (padrão: dev-keys/jwt-auth-dev.key)
 #   E2E_SCHEME       esquema do gateway local (padrão http; use https se houver TLS)
 #   E2E_TIMEOUT      segundos de espera por cada passo assíncrono (padrão 60)
 #
@@ -25,7 +25,6 @@ set -uo pipefail
 # O esquema vem de variável: o gateway local do compose só fala HTTP, dentro da máquina.
 E2E_SCHEME="${E2E_SCHEME:-http}"
 GW="${GATEWAY_URL:-${E2E_SCHEME}://localhost:8000}"
-SECRET="${E2E_JWT_SECRET:-akmsdkmasfnjsgknakmsdkmasdkmsadfkmdsakmdkmsadsa}"
 TIMEOUT="${E2E_TIMEOUT:-60}"
 
 for bin in curl jq openssl; do
@@ -45,15 +44,10 @@ check() { # check "descrição" esperado obtido
   if [[ "$2" == "$3" ]]; then ok "$1"; else bad "$1 (esperado: $2 | obtido: $3)"; fi
 }
 
-# ---------- JWT HS256 (mesmo formato aceito pelos serviços) ----------
-b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
-mint() { # mint '<json das claims>'
-  local h p s
-  h=$(printf '{"alg":"HS256","typ":"JWT"}' | b64url)
-  p=$(printf '%s' "$1" | b64url)
-  s=$(printf '%s.%s' "$h" "$p" | openssl dgst -sha256 -hmac "$SECRET" -binary | b64url)
-  printf '%s.%s.%s' "$h" "$p" "$s"
-}
+# ---------- JWT RS256 (como a Lambda de login: kid=workbench-auth, chave de dev-keys/) ----------
+# shellcheck source=../scripts/dev-jwt.sh
+source "$(dirname "$0")/../scripts/dev-jwt.sh"
+mint() { mint_dev_jwt "$1"; } # mint '<json das claims>'
 EXP=$(( $(date +%s) + 3600 ))
 ADMIN=$(mint "{\"sub\":\"admin@workbench.dev\",\"roles\":[\"ADMIN\"],\"exp\":$EXP}")
 client_token() { mint "{\"sub\":\"$1\",\"clientId\":$2,\"roles\":[\"CLIENT\"],\"exp\":$EXP}"; }
@@ -237,8 +231,15 @@ cenario_pagamento() {
   api POST "/order/$OID/payment-retry" "$(client_token "$CPF" "$CID")"
   expect_status "cliente pede nova cobrança" 202
   wait_for "recusa anterior é limpa" "/order/$OID/saga" "$ADMIN" .failureReason null || return
-  api GET "/api/payments/service-order/$OID" "$ADMIN"
-  local second; second=$(jqb .gatewayPaymentId)
+  # A recusa é limpa na hora, mas a nova cobrança chega pela fila do billing (polling de alguns
+  # segundos): espera o id mudar em vez de ler uma vez só.
+  local second="" deadline=$(( $(date +%s) + TIMEOUT ))
+  while (( $(date +%s) < deadline )); do
+    api GET "/api/payments/service-order/$OID" "$ADMIN"
+    second=$(jqb .gatewayPaymentId)
+    [[ -n "$second" && "$second" != "null" && "$second" != "$first" ]] && break
+    sleep 2
+  done
   [[ -n "$second" && "$second" != "null" && "$second" != "$first" ]] && ok "nova cobrança com outro id" || bad "nova cobrança não foi criada (id: $second)"
   webhook "$second" true
   wait_for "OS ENTREGUE após o segundo pagamento" "/order/id/$OID" "$ADMIN" .serviceStatus ENTREGUE
