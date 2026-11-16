@@ -52,8 +52,29 @@ locals {
 # Tópicos SNS
 # ----------------------------------------------------------------------------
 resource "aws_sns_topic" "this" {
-  for_each = local.topics
-  name     = each.value
+  for_each          = local.topics
+  name              = each.value
+  kms_master_key_id = local.sns_kms_key_id
+}
+
+# ----------------------------------------------------------------------------
+# Notificação de status ao cliente (paridade com o monólito).
+# Tópico dedicado: o OS Service publica aqui subject/message formatados; a
+# subscription de e-mail entrega ao destinatário. Separado dos tópicos da Saga
+# para não misturar notificação ao cliente com orquestração interna.
+# ----------------------------------------------------------------------------
+resource "aws_sns_topic" "notifications" {
+  name              = "${var.name_prefix}-os-notifications"
+  kms_master_key_id = local.sns_kms_key_id
+}
+
+# Subscription de e-mail — só na AWS real (LocalStack não entrega e-mail) e
+# quando um e-mail foi informado. O destinatário precisa confirmar a inscrição.
+resource "aws_sns_topic_subscription" "notifications_email" {
+  count     = (!var.use_localstack && var.notification_email != "") ? 1 : 0
+  topic_arn = aws_sns_topic.notifications.arn
+  protocol  = "email"
+  endpoint  = var.notification_email
 }
 
 # ----------------------------------------------------------------------------
@@ -63,6 +84,7 @@ resource "aws_sqs_queue" "dlq" {
   for_each                  = local.queues
   name                      = "${each.value.name}-dlq"
   message_retention_seconds = var.message_retention_seconds
+  sqs_managed_sse_enabled   = !var.use_localstack
 }
 
 # ----------------------------------------------------------------------------
@@ -73,6 +95,7 @@ resource "aws_sqs_queue" "this" {
   name                       = each.value.name
   message_retention_seconds  = var.message_retention_seconds
   visibility_timeout_seconds = var.visibility_timeout_seconds
+  sqs_managed_sse_enabled    = !var.use_localstack
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.dlq[each.key].arn

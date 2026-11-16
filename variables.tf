@@ -55,3 +55,38 @@ variable "visibility_timeout_seconds" {
   type        = number
   default     = 30
 }
+
+# --- Notificação ao cliente (paridade com o monólito) ------------------------
+
+variable "notification_email" {
+  description = "E-mail inscrito no tópico de notificações de status da OS (confirmar a subscription no e-mail). Vazio = cria só o tópico, sem subscription."
+  type        = string
+  default     = ""
+}
+
+# --- Alertas -----------------------------------------------------------------
+
+variable "alert_email" {
+  description = "E-mail que recebe os alarmes das DLQs (confirmar a subscription no e-mail). Vazio = cria o tópico de alertas sem inscrito."
+  type        = string
+  default     = ""
+}
+
+# --- E-mail ao cliente (Amazon SES) --------------------------------------------
+variable "ses_sender_email" {
+  description = "Remetente dos e-mails ao cliente, verificado no SES (a AWS envia um e-mail de verificação). Vazio = não cria identidade; o os-service segue no canal SNS."
+  type        = string
+  default     = ""
+}
+
+variable "ses_verified_recipients" {
+  description = "Destinatários a verificar no SES. Só necessário em SANDBOX, onde o SES recusa e-mail para endereço não verificado."
+  type        = list(string)
+  default     = []
+}
+
+variable "ses_domain" {
+  description = "Domínio próprio para o SES (identidade de domínio com DKIM). Vazio = só as identidades de e-mail."
+  type        = string
+  default     = ""
+}

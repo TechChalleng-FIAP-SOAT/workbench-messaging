@@ -10,3 +10,12 @@ terraform.tfvars
 
 # OS
 .DS_Store
+
+# Relatórios do OWASP ZAP (docker compose --profile scan)
+zap-reports/
+# Chaves de DESENVOLVIMENTO do JWT, geradas por máquina (scripts/dev-keys.sh). Nunca versionar:
+# a privada assina token de ADMIN aceito pelos serviços locais.
+dev-keys/*.key
+dev-keys/*.pub
+# Lido pelo docker compose; guarda JWT_PUBLIC_KEY (e segredos locais opcionais).
+.env

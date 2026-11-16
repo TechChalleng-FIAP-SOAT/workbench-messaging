@@ -1,0 +1,297 @@
+# Ambiente local da plataforma Workbench (Fase 4).
+#
+# Infra (sempre sobe):
+#   - LocalStack (SNS/SQS)        -> mensageria da Saga        :4566
+#   - Postgres os-service          -> banco do OS Service       :15432
+#   - Postgres billing-service     -> banco do Billing Service  :15433
+#   - Postgres customer-service    -> banco do Customer Service :15434
+#   - MongoDB execution-service    -> banco do Execution (NoSQL):27017 (replica set rs0)
+#
+# Aplicação (profile "app"):
+#   - messaging-init     -> aplica o Terraform deste repo no LocalStack (tópicos/filas/DLQs)
+#   - customer-service   :8081   - billing-service   :8082
+#   - execution-service  :8083   - os-service        :8080 (orquestrador)
+#   - gateway (nginx)    :8000   -> mesmo roteamento por prefixo do API Gateway da AWS
+#
+# Uso:
+#   # só a infra (para rodar os serviços com ./mvnw spring-boot:run — vault: 04 - Como Rodar/Saga Ponta a Ponta.md)
+#   docker compose -f docker-compose.dev.yml up -d
+#
+#   # a plataforma inteira (os 4 repos de serviço precisam estar ao lado deste)
+#   docker compose -f docker-compose.dev.yml --profile app up -d --build
+#
+#   # scan DAST (OWASP ZAP) de todos os serviços, atacando pelo gateway (1 container por serviço)
+#   zap/scan-platform.sh
+#   (relatórios em ./zap-reports/<serviço>/zap-report.html)
+#
+#   # derrubar tudo (e apagar os dados dos bancos)
+#   docker compose -f docker-compose.dev.yml --profile app down -v
+#
+# As credenciais abaixo casam com o perfil local (application-local.yml) de cada serviço;
+# fora desse perfil os serviços não têm valor padrão para segredos.
+# Os logs JSON dos serviços vão para ${WORKBENCH_LOG_DIR:-/tmp/workbench} no host,
+# onde o Datadog Agent local os coleta (datadog/workbench-logs.conf.yaml).
+
+x-service-common: &service-common
+  restart: unless-stopped
+  # Mesmo endurecimento dos pods no EKS (k8s/app.yaml): usuário não-root (UID 10001, na
+  # imagem), sistema de arquivos somente leitura com só /tmp gravável, sem capabilities e
+  # sem escalar privilégio. Um problema de escrita aparece aqui antes de ir para o cluster.
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop: ["ALL"]
+  security_opt: ["no-new-privileges:true"]
+  volumes:
+    - ${WORKBENCH_LOG_DIR:-/tmp/workbench}:/tmp/workbench
+  healthcheck:
+    test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 40s
+
+# JWT (RS256): a chave PÚBLICA de dev é gerada por máquina por scripts/dev-keys.sh, que também a
+# grava no .env (lido por este compose). A privada fica em dev-keys/ e assina os tokens locais
+# (scripts/dev-jwt.sh); nenhuma das duas vai para o git. Sem o .env, o compose para e avisa.
+
+# Perfil local: libera os valores de desenvolvimento (pagamento simulado, admin com a
+# senha padrão). Sem ele, os serviços exigem todos os segredos e recusam o admin123.
+x-local: &local
+  SPRING_PROFILES_ACTIVE: local
+  JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?Rode scripts/dev-keys.sh antes (gera o par de chaves de dev e o arquivo .env)}
+
+# Mensageria da Saga apontando para o LocalStack da rede do compose.
+x-messaging: &messaging
+  MESSAGING_ENABLED: "true"
+  AWS_ENDPOINT: http://localstack:4566
+  AWS_REGION: us-east-1
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+
+services:
+  localstack:
+    image: localstack/localstack:3
+    container_name: workbench-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sns,sqs,sts
+      - DEBUG=0
+      - AWS_DEFAULT_REGION=us-east-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  os-db:
+    image: postgres:16
+    container_name: workbench-os-db
+    ports:
+      - "15432:5432"
+    environment:
+      POSTGRES_DB: os_service
+      POSTGRES_USER: dbadmin
+      POSTGRES_PASSWORD: senha-super-segura
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbadmin -d os_service"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  billing-db:
+    image: postgres:16
+    container_name: workbench-billing-db
+    ports:
+      - "15433:5432"
+    environment:
+      POSTGRES_DB: billing
+      POSTGRES_USER: dbadmin
+      POSTGRES_PASSWORD: senha-super-segura
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbadmin -d billing"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  customer-db:
+    image: postgres:16
+    container_name: workbench-customer-db
+    ports:
+      - "15434:5432"
+    environment:
+      POSTGRES_DB: customer
+      POSTGRES_USER: dbadmin
+      POSTGRES_PASSWORD: senha-super-segura
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbadmin -d customer"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  execution-mongo:
+    image: mongo:7
+    container_name: workbench-execution-mongo
+    ports:
+      - "27017:27017"
+    # Execution usa transação multi-documento → exige replica set (mesmo com 1 nó).
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    healthcheck:
+      # Inicializa o replica set na primeira vez (idempotente) e confirma readiness.
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'try { rs.status() } catch (e) { rs.initiate() }' | grep -q . || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # Aplicação (profile "app")
+  # ---------------------------------------------------------------------------
+
+  # Cria tópicos/filas/DLQs com o MESMO Terraform usado na AWS (fonte única da
+  # topologia). Copia os .tf para um diretório temporário: o estado fica no
+  # container e some com ele — igual ao LocalStack, que também não persiste.
+  messaging-init:
+    profiles: ["app"]
+    image: hashicorp/terraform:1.9.8
+    depends_on:
+      localstack:
+        condition: service_healthy
+    volumes:
+      - ./:/src:ro
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        mkdir -p /work && cp /src/*.tf /work/ && rm -f /work/backend_override.tf
+        printf 'terraform {\n  backend "local" {}\n}\n' > /work/backend_override.tf
+        cd /work
+        terraform init -input=false -no-color >/dev/null
+        terraform apply -auto-approve -input=false -no-color \
+          -var use_localstack=true -var environment=local \
+          -var localstack_endpoint=http://localstack:4566
+
+  customer-service:
+    <<: *service-common
+    profiles: ["app"]
+    build: ../workbench-customer-service
+    container_name: workbench-customer-service
+    ports:
+      - "8081:8080"
+    depends_on:
+      customer-db:
+        condition: service_healthy
+    environment:
+      <<: *local
+      SPRING_DATASOURCE_URL: jdbc:postgresql://customer-db:5432/customer
+      SPRING_DATASOURCE_USERNAME: dbadmin
+      SPRING_DATASOURCE_PASSWORD: senha-super-segura
+      LOG_JSON_FILE: /tmp/workbench/customer-service.log
+
+  execution-service:
+    <<: *service-common
+    profiles: ["app"]
+    build: ../workbench-execution-service
+    container_name: workbench-execution-service
+    ports:
+      - "8083:8080"
+    depends_on:
+      execution-mongo:
+        condition: service_healthy
+      messaging-init:
+        condition: service_completed_successfully
+    environment:
+      <<: [*local, *messaging]
+      # directConnection: o replica set de 1 nó anuncia o hostname do container do
+      # Mongo; conectar direto no primário evita depender desse nome.
+      MONGODB_URI: mongodb://execution-mongo:27017/execution?directConnection=true
+      EXECUTION_EVENTS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:workbench-execution-events
+      EXECUTION_COMMANDS_QUEUE_URL: http://localstack:4566/000000000000/workbench-execution-commands-queue
+      LOG_JSON_FILE: /tmp/workbench/execution-service.log
+
+  billing-service:
+    <<: *service-common
+    profiles: ["app"]
+    build: ../workbench-billing-service
+    container_name: workbench-billing-service
+    ports:
+      - "8082:8080"
+    depends_on:
+      billing-db:
+        condition: service_healthy
+      messaging-init:
+        condition: service_completed_successfully
+    environment:
+      <<: [*local, *messaging]
+      SPRING_DATASOURCE_URL: jdbc:postgresql://billing-db:5432/billing
+      SPRING_DATASOURCE_USERNAME: dbadmin
+      SPRING_DATASOURCE_PASSWORD: senha-super-segura
+      BILLING_EVENTS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:workbench-billing-events
+      BILLING_COMMANDS_QUEUE_URL: http://localstack:4566/000000000000/workbench-billing-commands-queue
+      # fake = pagamento simulado; para o Mercado Pago (sandbox) exporte
+      # PAYMENT_PROVIDER=mercadopago e MP_ACCESS_TOKEN=<Access Token de teste> antes do "up".
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-fake}
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
+      LOG_JSON_FILE: /tmp/workbench/billing-service.log
+
+  os-service:
+    <<: *service-common
+    profiles: ["app"]
+    build: ../workbench-os-service
+    container_name: workbench-os-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      os-db:
+        condition: service_healthy
+      messaging-init:
+        condition: service_completed_successfully
+      customer-service:
+        condition: service_healthy
+    environment:
+      <<: [*local, *messaging]
+      SPRING_DATASOURCE_URL: jdbc:postgresql://os-db:5432/os_service
+      SPRING_DATASOURCE_USERNAME: dbadmin
+      SPRING_DATASOURCE_PASSWORD: senha-super-segura
+      ORDER_EVENTS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:workbench-order-events
+      SAGA_REPLIES_QUEUE_URL: http://localstack:4566/000000000000/workbench-os-saga-replies-queue
+      NOTIFICATIONS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:workbench-os-notifications
+      # E-mail ao cliente: sns (padrão) ou ses. O LocalStack da comunidade NÃO tem SES, então
+      # "ses" aqui só serve para ver a validação de subida (exige SES_SENDER_EMAIL).
+      NOTIFICATION_CHANNEL: ${NOTIFICATION_CHANNEL:-sns}
+      SES_SENDER_EMAIL: ${SES_SENDER_EMAIL:-}
+      CUSTOMER_VALIDATION_ENABLED: "true"
+      CUSTOMER_SERVICE_URL: http://customer-service:8080
+      LOG_JSON_FILE: /tmp/workbench/os-service.log
+
+  gateway:
+    profiles: ["app"]
+    image: nginx:1.27-alpine
+    container_name: workbench-gateway
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./local-gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      os-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+      execution-service:
+        condition: service_healthy
+
+  # Scan DAST (profile "scan"): spec OpenAPI de cada serviço, ataques pelo gateway.
+  zap:
+    profiles: ["scan"]
+    image: zaproxy/zap-stable:2.16.1
+    user: root   # grava os relatórios no bind mount sem depender do UID do host
+    depends_on:
+      gateway:
+        condition: service_started
+      customer-service:
+        condition: service_healthy
+    volumes:
+      - ./zap:/zap/scripts:ro
+      # o zap-api-scan.py grava relatórios (e lê o rules.conf) em /zap/wrk
+      - ./zap-reports:/zap/wrk
+    entrypoint: ["/zap/scripts/zap-scan.sh"]

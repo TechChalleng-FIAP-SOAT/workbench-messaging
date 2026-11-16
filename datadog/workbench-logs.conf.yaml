@@ -1,0 +1,35 @@
+# Check de logs do Datadog Agent para a plataforma Workbench rodando LOCALMENTE
+# (os 4 microsserviços via ./mvnw spring-boot:run, cada um gravando um arquivo
+# JSON exclusivo em /tmp/workbench/ pelo appender JSON_FILE do logback-spring.xml).
+#
+# Instalação (macOS, Agent 7):
+#   sudo mkdir -p /opt/datadog-agent/etc/conf.d/workbench.d
+#   sudo cp workbench-logs.conf.yaml /opt/datadog-agent/etc/conf.d/workbench.d/conf.yaml
+#   # ligar a coleta de logs (uma vez) em /opt/datadog-agent/etc/datadog.yaml: logs_enabled: true
+#   sudo launchctl stop com.datadoghq.agent ; sudo launchctl start com.datadoghq.agent
+#
+# Depois, no Datadog (site US), filtre por:  service:os-service  ou  @saga_id:<uuid-da-OS>
+logs:
+  - type: file
+    path: /tmp/workbench/os-service.log
+    service: os-service
+    source: java
+    sourcecategory: sourcecode
+
+  - type: file
+    path: /tmp/workbench/customer-service.log
+    service: customer-service
+    source: java
+    sourcecategory: sourcecode
+
+  - type: file
+    path: /tmp/workbench/billing-service.log
+    service: billing-service
+    source: java
+    sourcecategory: sourcecode
+
+  - type: file
+    path: /tmp/workbench/execution-service.log
+    service: execution-service
+    source: java
+    sourcecategory: sourcecode
