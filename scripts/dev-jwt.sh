@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Assina JWTs de DESENVOLVIMENTO (RS256, kid=workbench-auth) com a chave de dev-keys/, como a
 # Lambda de login faria na AWS. Uso: source scripts/dev-jwt.sh; mint_dev_jwt '<json das claims>'.
-# Requer openssl. A chave pode ser trocada por DEV_JWT_PRIVATE_KEY (Base64 do DER PKCS#8).
+# Requer openssl. Se o par ainda não existe nesta máquina, ele é gerado agora (scripts/dev-keys.sh;
+# a chave privada não vem do repositório). A chave pode ser trocada por DEV_JWT_PRIVATE_KEY
+# (Base64 do DER PKCS#8); nesse caso a pública correspondente precisa estar em JWT_PUBLIC_KEY.
 
 _dev_jwt_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=dev-keys.sh
+[ -n "${DEV_JWT_PRIVATE_KEY:-}" ] || source "$_dev_jwt_dir/scripts/dev-keys.sh" || return 1
 
 _b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
 

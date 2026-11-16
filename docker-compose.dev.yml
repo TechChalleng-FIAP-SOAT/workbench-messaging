@@ -51,13 +51,15 @@ x-service-common: &service-common
     retries: 12
     start_period: 40s
 
-# JWT (RS256): as chaves de dev vêm do perfil local de cada serviço (application-local.yml);
-# os scripts locais assinam com dev-keys/jwt-auth-dev.key.
+# JWT (RS256): a chave PÚBLICA de dev é gerada por máquina por scripts/dev-keys.sh, que também a
+# grava no .env (lido por este compose). A privada fica em dev-keys/ e assina os tokens locais
+# (scripts/dev-jwt.sh); nenhuma das duas vai para o git. Sem o .env, o compose para e avisa.
 
 # Perfil local: libera os valores de desenvolvimento (pagamento simulado, admin com a
 # senha padrão). Sem ele, os serviços exigem todos os segredos e recusam o admin123.
 x-local: &local
   SPRING_PROFILES_ACTIVE: local
+  JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY:?Rode scripts/dev-keys.sh antes (gera o par de chaves de dev e o arquivo .env)}
 
 # Mensageria da Saga apontando para o LocalStack da rede do compose.
 x-messaging: &messaging

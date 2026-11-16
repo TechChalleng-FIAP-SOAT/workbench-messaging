@@ -143,7 +143,7 @@ e2e/saga-e2e.sh feliz estoque    # só alguns: feliz | estoque | pagamento | seg
 Os dados são únicos por execução (CPF válido e placa gerados), então o teste roda várias vezes sem limpar
 o banco. Sai com código 0 se tudo passou. Aborta (código 2) se o billing não estiver com
 `PAYMENT_PROVIDER=fake`, porque o webhook só existe nesse modo; o teste **não** usa o Mercado Pago real.
-Variáveis: `GATEWAY_URL` (padrão: gateway local, porta 8000), `E2E_SCHEME` (padrão `http`), `DEV_JWT_PRIVATE_KEY` (padrão: a chave de dev em `dev-keys/`; o token é RS256 como o da Lambda) e `E2E_TIMEOUT` (segundos por passo assíncrono, padrão 60).
+Variáveis: `GATEWAY_URL` (padrão: gateway local, porta 8000), `E2E_SCHEME` (padrão `http`), `DEV_JWT_PRIVATE_KEY` (padrão: a chave de dev da sua máquina em `dev-keys/`, criada por `scripts/dev-keys.sh` na primeira execução; o token é RS256 como o da Lambda) e `E2E_TIMEOUT` (segundos por passo assíncrono, padrão 60).
 O script não roda no CI: o compose constrói as imagens dos outros repositórios, que não existem no
 checkout do `workbench-messaging`.
 ## 7. Variáveis principais

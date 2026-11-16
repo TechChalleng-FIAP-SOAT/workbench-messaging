@@ -12,7 +12,7 @@
 #
 # Variáveis opcionais:
 #   GATEWAY_URL      (padrão: gateway local do compose, porta 8000)
-#   DEV_JWT_PRIVATE_KEY  chave privada de dev (padrão: dev-keys/jwt-auth-dev.key)
+#   DEV_JWT_PRIVATE_KEY  chave privada de dev (padrão: dev-keys/jwt-auth-dev.key, gerada na 1ª execução)
 #   E2E_SCHEME       esquema do gateway local (padrão http; use https se houver TLS)
 #   E2E_TIMEOUT      segundos de espera por cada passo assíncrono (padrão 60)
 #
