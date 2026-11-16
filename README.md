@@ -125,6 +125,28 @@ terraform fmt -check
 terraform validate
 ```
 
+## 6.1 Teste ponta a ponta da plataforma
+`e2e/saga-e2e.sh` exercita a plataforma inteira pelo gateway local (os, customer, billing e
+execution, com SNS/SQS no LocalStack). Precisa de `bash`, `curl`, `jq` e `openssl`, e do compose no ar
+com pagamento simulado (padrão):
+```bash
+docker compose -f docker-compose.dev.yml --profile app up -d --build
+e2e/saga-e2e.sh                  # os 4 cenários (~1 min)
+e2e/saga-e2e.sh feliz estoque    # só alguns: feliz | estoque | pagamento | seguranca
+```
+| Cenário | O que confere |
+|---|---|
+| `feliz` | cliente, veículo, produto e estoque → OS → diagnóstico → orçamento (R$ 170,00) → aprovação pelo cliente → execução → cobrança → pagamento → `ENTREGUE`, Saga `CONCLUIDA`, estoque baixado e histórico do pagamento |
+| `estoque` | estoque insuficiente leva a Saga a `FALHOU` com motivo, a OS fica em `EM_DIAGNOSTICO`, nada fica reservado; novo diagnóstico recomeça a Saga |
+| `pagamento` | pagamento recusado mantém a OS em `PAGAMENTO_PENDENTE`; `payment-retry` gera outra cobrança; o segundo pagamento entrega a OS |
+| `seguranca` | 401 sem token ou com token inválido, 403 para cliente em rota de staff e nos dados de outro cliente |
+Os dados são únicos por execução (CPF válido e placa gerados), então o teste roda várias vezes sem limpar
+o banco. Sai com código 0 se tudo passou. Aborta (código 2) se o billing não estiver com
+`PAYMENT_PROVIDER=fake`, porque o webhook só existe nesse modo; o teste **não** usa o Mercado Pago real.
+Variáveis: `GATEWAY_URL` (padrão: gateway local, porta 8000), `E2E_SCHEME` (padrão `http`), `E2E_JWT_SECRET` (padrão: o segredo de
+desenvolvimento do compose) e `E2E_TIMEOUT` (segundos por passo assíncrono, padrão 60).
+O script não roda no CI: o compose constrói as imagens dos outros repositórios, que não existem no
+checkout do `workbench-messaging`.
 ## 7. Variáveis principais
 
 | Variável | Default | Descrição |
