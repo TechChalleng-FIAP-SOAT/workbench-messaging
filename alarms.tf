@@ -47,3 +47,34 @@ resource "aws_cloudwatch_metric_alarm" "dlq_not_empty" {
   alarm_actions = [aws_sns_topic.alerts[0].arn]
   ok_actions    = [aws_sns_topic.alerts[0].arn]
 }
+
+# Quem pode publicar no tópico de alertas: a conta, o CloudWatch (alarmes das DLQs) e o SES
+# (bounces e reclamações do configuration set). A política padrão do SNS só libera a conta;
+# sem esta, o SES não consegue entregar os eventos.
+resource "aws_sns_topic_policy" "alerts" {
+  count = var.use_localstack ? 0 : 1
+  arn   = aws_sns_topic.alerts[0].arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "ContaGerencia"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
+        Action    = ["sns:Publish", "sns:Subscribe", "sns:GetTopicAttributes", "sns:SetTopicAttributes", "sns:ListSubscriptionsByTopic"]
+        Resource  = aws_sns_topic.alerts[0].arn
+      },
+      {
+        Sid       = "CloudWatchESesPublicam"
+        Effect    = "Allow"
+        Principal = { Service = ["cloudwatch.amazonaws.com", "ses.amazonaws.com"] }
+        Action    = "sns:Publish"
+        Resource  = aws_sns_topic.alerts[0].arn
+        Condition = {
+          StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }
+        }
+      },
+    ]
+  })
+}
