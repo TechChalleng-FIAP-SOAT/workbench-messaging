@@ -7,7 +7,7 @@
 
 _dev_jwt_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=dev-keys.sh
-[ -n "${DEV_JWT_PRIVATE_KEY:-}" ] || source "$_dev_jwt_dir/scripts/dev-keys.sh" || return 1
+[[ -n "${DEV_JWT_PRIVATE_KEY:-}" ]] || source "$_dev_jwt_dir/scripts/dev-keys.sh" || return 1
 
 _b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
 

@@ -43,13 +43,13 @@ dev_keys_write_env() {
   local pub tmp
   pub="$(cat "$_dk_pub")"
   tmp="$(mktemp)" || return 1
-  { [ -f "$_dk_env" ] && grep -v '^JWT_PUBLIC_KEY=' "$_dk_env"; printf 'JWT_PUBLIC_KEY=%s\n' "$pub"; } > "$tmp" &&
+  { [[ -f "$_dk_env" ]] && grep -v '^JWT_PUBLIC_KEY=' "$_dk_env"; printf 'JWT_PUBLIC_KEY=%s\n' "$pub"; } > "$tmp" &&
     cat "$tmp" > "$_dk_env"
   rm -f "$tmp"
 }
 
 dev_keys_ensure() {
-  if [ "${1:-}" = "--force" ] || [ ! -s "$_dk_key" ] || [ ! -s "$_dk_pub" ]; then
+  if [[ "${1:-}" == "--force" || ! -s "$_dk_key" || ! -s "$_dk_pub" ]]; then
     dev_keys_generate || return 1
   fi
   dev_keys_write_env || return 1
@@ -58,7 +58,7 @@ dev_keys_ensure() {
 
 # Executado direto: aceita --force. Com "source" (dev-jwt.sh, e2e, ZAP): só garante o par, sem
 # olhar os argumentos do script que fez o source.
-if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   dev_keys_ensure "${1:-}"
 else
   dev_keys_ensure
