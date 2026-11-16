@@ -10,7 +10,9 @@
 # Uso: zap/scan-platform.sh (um container por serviço; ZAP_SERVICES escolhe o serviço)
 set -u
 
-GATEWAY_URL="${GATEWAY_URL:-http://gateway:8000}"
+# Esquema usado para chegar nos serviços e no gateway (padrão: http, rede local do compose).
+SERVICE_SCHEME="${SERVICE_SCHEME:-http}"
+GATEWAY_URL="${GATEWAY_URL:-${SERVICE_SCHEME}://gateway:8000}"
 REPORT_DIR=/zap/wrk
 cp /zap/scripts/rules.conf "$REPORT_DIR/rules.conf"
 SERVICES="${ZAP_SERVICES:-os-service customer-service billing-service execution-service}"
@@ -51,9 +53,10 @@ for svc in $SERVICES; do
   # Cada zap-api-scan.py sobe e derruba um daemon ZAP; o anterior deixa o .homelock
   # no diretório do ZAP e, sem removê-lo, o próximo daemon não sobe (o scan trava).
   rm -f "$HOME/.ZAP/.homelock" /home/zap/.ZAP/.homelock
-  # HTTP de propósito: o scan roda dentro da rede do docker compose local, onde os
-  # serviços não têm TLS (na AWS o tráfego é interno à VPC, atrás do API Gateway).
-  spec_url="http://$svc:8080/v3/api-docs" # NOSONAR
+  # O esquema vem de SERVICE_SCHEME. O padrão é http porque o scan roda dentro da rede do
+  # docker compose local, onde os serviços não têm TLS (na AWS o tráfego é interno à VPC,
+  # atrás do API Gateway). Com TLS no alvo, basta SERVICE_SCHEME=https.
+  spec_url="${SERVICE_SCHEME}://$svc:8080/v3/api-docs"
   echo ""
   echo "== [$svc] spec $spec_url → ataques via $GATEWAY_URL"
   zap-api-scan.py \

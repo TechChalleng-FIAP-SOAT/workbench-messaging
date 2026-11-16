@@ -228,7 +228,7 @@ services:
       BILLING_EVENTS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:workbench-billing-events
       BILLING_COMMANDS_QUEUE_URL: http://localstack:4566/000000000000/workbench-billing-commands-queue
       # fake = pagamento simulado; para o Mercado Pago (sandbox) exporte
-      # PAYMENT_PROVIDER=mercadopago e MP_ACCESS_TOKEN=TEST-... antes do "up".
+      # PAYMENT_PROVIDER=mercadopago e MP_ACCESS_TOKEN=<Access Token de teste> antes do "up".
       PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-fake}
       MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
       LOG_JSON_FILE: /tmp/workbench/billing-service.log
